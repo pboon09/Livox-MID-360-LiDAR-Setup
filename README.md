@@ -32,6 +32,9 @@ sudo apt install -y cmake build-essential nmap ethtool net-tools
 # List all network interfaces
 ip link show
 
+# Or
+ifconfig
+
 # Common ethernet interface names: enp89s0, eth0, enp3s0, etc.
 # Note your ethernet interface name for later use
 ```
@@ -72,18 +75,11 @@ ping -c 3 192.168.1.12
 
 # If no response, try other discovered IPs
 ping -c 3 192.168.1.169  # Replace with discovered IP
-
-# Check if device responds to HTTP (Livox devices have web interface)
-curl -m 5 http://192.168.1.169 2>/dev/null && echo "Web interface found - likely Livox device"
-
-# Advanced: Check device manufacturer (if available)
-nmap -O 192.168.1.169 | grep -i livox
 ```
 
 **Identifying Livox Device Characteristics:**
 - Responds to ping consistently
 - Usually has IP 192.168.1.12 (default) or custom configured IP
-- May respond to HTTP requests on port 80 (web interface)
 - TTL typically 255 in ping responses
 - Manufacturer info may show "Livox" or "DJI" in network scans
 
@@ -222,7 +218,7 @@ rosdep install --from-paths src --ignore-src -r -y
 ./src/livox_ros_driver2/build.sh humble  # or ROS2 for Foxy
 
 # Alternative manual build
-# colcon build --symlink-install
+colcon build --symlink-install
 
 # Source workspace
 source install/setup.bash
@@ -231,12 +227,12 @@ source install/setup.bash
 echo "source ~/ws_livox/install/setup.bash" >> ~/.bashrc
 ```
 
-## Configuration
+## Configuration, Launch, and Testing
 
 ### 1. Update LiDAR Configuration File
 ```bash
 # Edit the MID-360 configuration file
-nano ~/ws_livox/src/livox_ros_driver2/config/MID360_config.json
+gedit ~/ws_livox/src/livox_ros_driver2/config/MID360_config.json
 ```
 
 **Replace with your network settings:**
@@ -284,22 +280,7 @@ nano ~/ws_livox/src/livox_ros_driver2/config/MID360_config.json
 }
 ```
 
-### 2. Create Launch Script (Optional)
-```bash
-# Create convenient launch script
-cat > ~/livox_launch.sh << 'EOF'
-#!/bin/bash
-cd ~/ws_livox
-source install/setup.bash
-ros2 launch livox_ros_driver2 rviz_MID360_launch.py
-EOF
-
-chmod +x ~/livox_launch.sh
-```
-
-## Launch and Testing
-
-### 1. Pre-flight Check
+### 2. Pre-flight Check
 ```bash
 # Verify network connectivity
 ping -c 3 192.168.1.169  # Replace with your LiDAR IP
@@ -312,7 +293,7 @@ ros2 --version
 echo $ROS_DOMAIN_ID  # Should be set or empty
 ```
 
-### 2. Launch LiDAR Node
+### 3. Launch LiDAR Node
 ```bash
 cd ~/ws_livox
 source install/setup.bash
@@ -324,7 +305,7 @@ ros2 launch livox_ros_driver2 rviz_MID360_launch.py
 ros2 launch livox_ros_driver2 msg_MID360_launch.py
 ```
 
-### 3. Verify Data Stream
+### 4. Verify Data Stream
 ```bash
 # In a new terminal, check ROS2 topics
 ros2 topic list
@@ -340,7 +321,7 @@ ros2 topic hz /livox/lidar
 ros2 topic echo /livox/lidar --field width
 ```
 
-### 4. RViz Configuration
+### 5. RViz Configuration
 If using RViz visualization:
 - Set **Fixed Frame** to `livox_frame` in Global Options
 - Add **PointCloud2** display
@@ -376,55 +357,6 @@ sudo ldconfig
 ldd ~/ws_livox/install/livox_ros_driver2/lib/livox_ros_driver2/livox_ros_driver2_node | grep livox
 ```
 
-#### Socket/Port Issues
-```bash
-# "bind failed" error
-# 1. Check if correct host IP in config matches your interface
-ip addr show $ETH_INTERFACE | grep inet
-
-# 2. Check for port conflicts
-sudo netstat -ulnp | grep 56
-
-# 3. Kill conflicting processes if needed
-sudo pkill -f livox
-```
-
-#### ROS2 Issues
-```bash
-# No topics published
-# 1. Check ROS2 environment
-env | grep ROS
-
-# 2. Verify node is running
-ros2 node list
-
-# 3. Check for errors in launch terminal
-# Look for connection errors or configuration mistakes
-```
-
-#### LiDAR Connection Issues
-```bash
-# LiDAR not responding
-# 1. Power cycle the LiDAR
-# 2. Check ethernet cable
-# 3. Try factory reset (if accessible via web interface)
-firefox http://192.168.1.169  # Replace with LiDAR IP
-
-# 4. Verify LiDAR is in correct operating mode
-# Some LiDARs have different modes (normal/upgrade/etc.)
-```
-
-### Reset to Factory Settings
-If LiDAR has been misconfigured:
-```bash
-# Access web interface (if available)
-curl http://192.168.1.169/reset  # May vary by firmware
-
-# Or try default IP
-ping 192.168.1.12
-curl http://192.168.1.12
-```
-
 ### Network Management Commands
 ```bash
 # View all NetworkManager connections
@@ -439,54 +371,6 @@ sudo nmcli connection up livox-lidar
 
 # Remove connection (if needed)
 sudo nmcli connection delete livox-lidar
-```
-
-## Advanced Configuration
-
-### Multiple LiDARs
-For multiple LiDAR setup, modify the `lidar_configs` array:
-```json
-"lidar_configs" : [
-  {
-    "ip" : "192.168.1.169",
-    "pcl_data_type" : 1,
-    "pattern_mode" : 0,
-    "extrinsic_parameter" : { ... }
-  },
-  {
-    "ip" : "192.168.1.170",
-    "pcl_data_type" : 1,
-    "pattern_mode" : 0,
-    "extrinsic_parameter" : { ... }
-  }
-]
-```
-
-### Performance Tuning
-```bash
-# Increase network buffer sizes for high data rates
-echo 'net.core.rmem_max = 134217728' | sudo tee -a /etc/sysctl.conf
-echo 'net.core.rmem_default = 134217728' | sudo tee -a /etc/sysctl.conf
-sudo sysctl -p
-```
-
-## Quick Reference Commands
-
-### Network Setup
-```bash
-# Quick network setup (replace interface name)
-sudo ip link set enp89s0 up
-sudo ip addr add 192.168.1.50/24 dev enp89s0
-nmap -sn 192.168.1.0/24
-ping -c 3 192.168.1.169
-```
-
-### Auto Network Configuration
-```bash
-# One-time automatic setup
-sudo nmcli connection add type ethernet ifname enp89s0 con-name livox-lidar ip4 192.168.1.50/24 ipv4.method manual
-sudo nmcli connection modify livox-lidar connection.autoconnect yes
-sudo nmcli connection up livox-lidar
 ```
 
 ### Launch Commands
@@ -516,4 +400,3 @@ ros2 topic hz /livox/lidar
 **Support:**
 - For SDK issues: [Livox SDK2 Issues](https://github.com/Livox-SDK/Livox-SDK2/issues)
 - For ROS driver issues: [Livox ROS Driver 2 Issues](https://github.com/Livox-SDK/livox_ros_driver2/issues)
-- Email support: cs@livoxtech.com
