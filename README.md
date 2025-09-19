@@ -7,9 +7,9 @@ Complete installation and configuration guide for Livox MID-360 LiDAR with ROS2 
 - [Network Discovery and Configuration](#network-discovery-and-configuration)
 - [Livox SDK2 Installation](#livox-sdk2-installation)
 - [ROS2 Driver Installation](#ros2-driver-installation)
-- [Configuration](#configuration)
-- [Launch and Testing](#launch-and-testing)
+- [Configuration, Launch, and Testing](#configuration-launch-and-testing)
 - [Troubleshooting](#troubleshooting)
+- [References](#references)
 
 ## Prerequisites
 
